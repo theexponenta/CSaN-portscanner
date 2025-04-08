@@ -1,13 +1,15 @@
 #include <iostream>
-#include <winsock2.h>
+#include <sys/socket.h>
+#include <ctime>
+#include <fstream>
+#include <arpa/inet.h>
+#include "syn_scanner.h"
 
 #define WS_VERSION 0x0202
 
 
 int main() {
-    WSAData wsaData;
-    WSAStartup(WS_VERSION, &wsaData);
+    srand(time(nullptr));
 
-    WSACleanup();
     return 0;
 }

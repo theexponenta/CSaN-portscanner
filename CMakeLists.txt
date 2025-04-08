@@ -3,6 +3,12 @@ project(portscanner)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(portscanner main.cpp)
-
-target_link_libraries(portscanner ws2_32)
+add_executable(portscanner main.cpp
+        syn_scanner.h
+        syn_scanner.cpp
+        ip.h
+        tcp.h
+        random.h
+        random.cpp
+        utils.h
+        utils.cpp)
