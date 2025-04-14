@@ -201,3 +201,16 @@ int sendtoAll(int s, const char *buf, int len, int flags, const sockaddr *to, in
 
     return bytesSent;
 }
+
+
+int idleRecvfromAll(int s, void *buf, int len, int flags, sockaddr *from , socklen_t *fromlen) {
+    while (len > 0) {
+        int bytesReceived = recvfrom(s, buf, len, flags, from, fromlen);
+        if (bytesReceived <= 0)
+            break;
+
+        len -= bytesReceived;
+    }
+
+    return len;
+}

@@ -4,11 +4,13 @@ project(portscanner)
 set(CMAKE_CXX_STANDARD 20)
 
 add_executable(portscanner main.cpp
-        syn_scanner.h
-        syn_scanner.cpp
+        scanning/syn_scanner.h
+        scanning/syn_scanner.cpp
         ip.h
         tcp.h
         random.h
         random.cpp
         utils.h
-        utils.cpp)
+        utils.cpp
+        scanning/scanning.h
+        scanning/scanning.cpp)
