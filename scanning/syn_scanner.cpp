@@ -28,17 +28,18 @@ struct tcphash {
 };
 
 
-void synScanReceive(ScanParams *scanParams, ScanResult *result) {
+void synScanReceive(ScanState &scanState) {
     char buffer[1600];
     iphdr *iph = (iphdr*)buffer;
     tcphdr *tcph = nullptr;
     tcphash tcpHash {};
     int sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
 
-    while (true) {
+    while (!scanState.isEnd) {
         int bytesReceived = recvfrom(sock, buffer, sizeof(buffer), 0, nullptr, nullptr);
         if (bytesReceived <= 0)
             continue;
+
         int length = htons(iph->tot_len);
 
         if (iph->protocol == IPPROTO_TCP) {
@@ -50,13 +51,13 @@ void synScanReceive(ScanParams *scanParams, ScanResult *result) {
                 tcpHash.dest_port = tcph->source_port;
 
                 uint64_t hash;
-                siphash(&tcpHash, sizeof(tcpHash), scanParams->seed, (uint8_t*)&hash, sizeof(hash));
+                siphash(&tcpHash, sizeof(tcpHash), scanState.params.seed, (uint8_t*)&hash, sizeof(hash));
                 if (htonl(tcph->ack_num) - 1 == (uint32_t)hash) {
                     PortState portState = PortState::OPEN;
                     if (tcph->rst)
                         portState = PortState::CLOSED;
 
-                    result->addPortInfo(htonl(iph->source_addr), htons(tcph->source_port), portState);
+                    scanState.result.addPortInfo(htonl(iph->source_addr), htons(tcph->source_port), portState);
                 }
             }
         }
@@ -67,7 +68,9 @@ void synScanReceive(ScanParams *scanParams, ScanResult *result) {
 }
 
 
-void synScanTransmit(ScanParams *scanParams) {
+void synScanTransmit(ScanState &scanState) {
+    const ScanParams params = scanState.params;
+
     int sendSock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
 
     int one = 1;
@@ -103,7 +106,7 @@ void synScanTransmit(ScanParams *scanParams) {
     sockaddr_in destAddr {};
     destAddr.sin_family = AF_INET;
 
-    for (uint32_t host : scanParams->ips) {
+    for (uint32_t host : params.ips) {
         iph->dest_addr = host;
         iph->checksum = 0;
         iph->checksum = checksum((uint16_t*)iph, sizeof(iphdr));
@@ -112,7 +115,7 @@ void synScanTransmit(ScanParams *scanParams) {
         destAddr.sin_addr.s_addr = iph->dest_addr;
         tcpHash.dest_addr = iph->dest_addr;
 
-        for (uint16_t port : scanParams->ports) {
+        for (uint16_t port : params.ports) {
             tcph->source_port = htons(randInt(MIN_DYNAMIC_PORT, MAX_DYNAMIC_PORT));
             tcph->dest_port = htons(port);
             tcph->checksum = 0;
@@ -120,7 +123,7 @@ void synScanTransmit(ScanParams *scanParams) {
             tcpHash.source_port = tcph->source_port;
             tcpHash.dest_port = tcph->dest_port;
             uint64_t hash;
-            siphash(&tcpHash, sizeof(tcpHash), scanParams->seed, (uint8_t*)&hash, sizeof(hash));
+            siphash(&tcpHash, sizeof(tcpHash), params.seed, (uint8_t*)&hash, sizeof(hash));
             tcph->seq_num = htonl((uint32_t)hash);
 
             memcpy(&pseudoTcph.tcp, tcph, sizeof(tcphdr));

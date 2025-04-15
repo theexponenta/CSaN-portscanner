@@ -1,11 +1,30 @@
 #include "scanning.h"
 
 void ScanResult::addPortInfo(uint32_t hostIp, uint16_t port, PortState portState) {
-    if (!this->hosts.contains(hostIp)) {
+    int index = -1;
+    if (!this->hostsInfoIndices_.contains(hostIp)) {
         HostInfo hostInfo;
         hostInfo.ip = hostIp;
-        this->hosts[hostIp] = hostInfo;
+
+        index = this->hostsInfo_.size();
+        this->hostsInfoIndices_[hostIp] = index;
+        this->hostsInfo_.push_back(std::move(hostInfo));
     }
 
-    this->hosts[hostIp].portsInfo.push_back(PortInfo {port, portState});
+    if (index == -1)
+        index = this->hostsInfoIndices_[hostIp];
+
+    this->hostsInfo_[index].portsInfo.push_back(PortInfo {port, portState});
+    this->size_++;
 }
+
+
+int ScanResult::size() const {
+    return this->size_;
+}
+
+
+const std::vector<HostInfo>& ScanResult::hostsInfo() const & {
+    return this->hostsInfo_;
+}
+
