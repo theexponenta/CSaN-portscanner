@@ -136,3 +136,19 @@ void synScanTransmit(ScanState &scanState) {
     }
 }
 
+
+void synScan(ScanState &scanState) {
+    std::thread receiveThread(synScanReceive, std::ref(scanState));
+    std::thread transmitThread(synScanTransmit, std::ref(scanState));
+
+    time_t start = time(nullptr);
+    int messagesCount = scanState.params.ips.size() * scanState.params.ports.size();
+    while (time(nullptr) - start <= scanState.params.wait && scanState.result.size() < messagesCount) {
+        usleep(50000);
+    }
+
+    scanState.isEnd = true;
+
+    transmitThread.join();
+    receiveThread.join();
+}

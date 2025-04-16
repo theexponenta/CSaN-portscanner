@@ -6,7 +6,6 @@
 #include <map>
 #include "scanning.h"
 
-void synScanTransmit(ScanState &scanState);
-void synScanReceive(ScanState &scanState);
+void synScan(ScanState &scanState);
 
 #endif
