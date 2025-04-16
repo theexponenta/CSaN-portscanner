@@ -13,4 +13,6 @@ add_executable(portscanner main.cpp
         utils.h
         utils.cpp
         scanning/scanning.h
-        scanning/scanning.cpp)
+        scanning/scanning.cpp
+        cli.cpp
+        cli.h)
