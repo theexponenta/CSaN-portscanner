@@ -203,14 +203,14 @@ int sendtoAll(int s, const char *buf, int len, int flags, const sockaddr *to, in
 }
 
 
-int idleRecvfromAll(int s, void *buf, int len, int flags, sockaddr *from , socklen_t *fromlen) {
-    while (len > 0) {
-        int bytesReceived = recvfrom(s, buf, len, flags, from, fromlen);
+int idleRecvfromAll(int s, void *buf, int bufLen, int readLen, int flags, sockaddr *from , socklen_t *fromlen) {
+    while (readLen > 0) {
+        int bytesReceived = recvfrom(s, buf, bufLen, flags, from, fromlen);
         if (bytesReceived <= 0)
             break;
 
-        len -= bytesReceived;
+        readLen -= bytesReceived;
     }
 
-    return len;
+    return readLen;
 }

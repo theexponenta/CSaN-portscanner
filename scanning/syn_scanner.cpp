@@ -63,7 +63,7 @@ void synScanReceive(ScanState &scanState) {
         }
 
         if (length > bytesReceived)
-            idleRecvfromAll(sock, buffer, length - bytesReceived, 0, nullptr, nullptr);
+            idleRecvfromAll(sock, buffer, sizeof(buffer), length - bytesReceived, 0, nullptr, nullptr);
     }
 }
 
