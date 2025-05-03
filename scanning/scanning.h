@@ -4,11 +4,23 @@
 #include <cstdint>
 #include <vector>
 #include <map>
+#include <net/if.h>
+
+
+struct NetworkInterface {
+    int index;
+    char name[IFNAMSIZ];
+    unsigned char mac[6];
+    unsigned char gatewayMac[6];
+    uint32_t ip;
+    uint32_t gatewayIp;
+};
 
 
 struct ScanParams {
     std::vector<uint32_t> ips;
     std::vector<uint16_t> ports;
+    NetworkInterface interface;
     unsigned int wait;
     char seed[16];
 };

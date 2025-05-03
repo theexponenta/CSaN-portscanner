@@ -2,19 +2,27 @@
 #include <sys/socket.h>
 #include <ctime>
 #include <fstream>
-#include <thread>
 #include <arpa/inet.h>
 #include "scanning/scanning.h"
 #include "scanning/syn_scanner.h"
 #include "random.h"
 #include "cli.h"
+#include "utils.h"
 
 
 int main(int argc, char** argv) {
     srand(time(nullptr));
 
+    NetworkInterface interface;
+    bool if_result = getAutoNetworkInterface(interface);
+    if (!if_result) {
+        std::cout << "Cant' get network interface";
+        return -1;
+    }
+
     ScanParams scanParams {};
     scanParams.wait = 10;
+    scanParams.interface = interface;
     randBytes(scanParams.seed, sizeof(ScanParams::seed));
     getScanParams(scanParams, argc, argv);
 

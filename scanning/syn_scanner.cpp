@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <sys/socket.h>
+#include <linux/if_packet.h>
+#include <net/ethernet.h>
 #include <arpa/inet.h>
 #include <cstring>
 #include <map>
@@ -80,28 +82,37 @@ void synScanReceive(ScanState &scanState) {
 void synScanTransmit(ScanState &scanState) {
     const ScanParams params = scanState.params;
 
-    int sendSock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+    int sendSock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 
-    int one = 1;
-    int res = setsockopt(sendSock, IPPROTO_IP, IP_HDRINCL, (const char*)&one, sizeof(one));
+    sockaddr_ll addr;
+    addr.sll_family = AF_PACKET;
+    addr.sll_protocol = htons(ETH_P_ALL);
+    addr.sll_ifindex = params.interface.index;
 
-    char datagram[sizeof(iphdr) + sizeof(tcphdr)];
+    bind(sendSock, (sockaddr*)&addr, sizeof(addr));
+
+    char datagram[sizeof(ethhdr) + sizeof(iphdr) + sizeof(tcphdr)];
     memset(datagram, 0, sizeof(datagram));
 
-    iphdr *iph = (iphdr*)datagram;
-    tcphdr *tcph = (tcphdr*)(datagram + sizeof(iphdr));
+    ethhdr *eth = (ethhdr*)datagram;
+    iphdr *iph = (iphdr*)(datagram + sizeof(ethhdr));
+    tcphdr *tcph = (tcphdr*)(datagram + sizeof(ethhdr) + sizeof(iphdr));
+
+    eth->h_proto = htons(ETH_P_IP);
+    memcpy(eth->h_source, params.interface.mac, sizeof(params.interface.mac));
+    memcpy(eth->h_dest, params.interface.gatewayMac, sizeof(eth->h_dest));
 
     iph->ihl = 5;
     iph->version = 4;
-    iph->tot_len = htons(sizeof(datagram));
+    iph->tot_len = htons(sizeof(iphdr) + sizeof(tcphdr));
     iph->id = rand();
     iph->frag_off = htons((iph->frag_off & IP_OFFMASK) | IP_DF);
     iph->ttl = DEFAULT_TTL;
     iph->protocol = IPPROTO_TCP;
-    iph->source_addr = getLocalIp();
+    iph->source_addr = htonl(params.interface.ip);
 
     tcph->syn = 1;
-    tcph->data_off = sizeof(struct tcphdr) / 4;
+    tcph->data_off = sizeof(tcphdr) / 4;
     tcph->window = htons(TCP_WINDOW_SIZE);
 
     pseudo_tcphdr pseudoTcph {};
@@ -140,7 +151,7 @@ void synScanTransmit(ScanState &scanState) {
             tcph->checksum = checksum((uint16_t*)&pseudoTcph, sizeof(pseudoTcph));
 
             destAddr.sin_port = htons(port);
-            sendtoAll(sendSock, datagram, sizeof(datagram), 0, (sockaddr*)&destAddr, sizeof(destAddr));
+            sendAll(sendSock, datagram, sizeof(datagram), 0);
         }
     }
 }

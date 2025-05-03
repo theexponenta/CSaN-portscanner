@@ -31,7 +31,7 @@ struct pseudo_tcphdr
     uint8_t protocol;
     uint16_t tcp_length;
 
-    struct tcphdr tcp;
+    tcphdr tcp;
 };
 
 #endif //PORTSCANNER_TCP_H
