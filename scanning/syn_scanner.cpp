@@ -57,7 +57,16 @@ void synScanReceive(ScanState &scanState) {
                     if (tcph->rst)
                         portState = PortState::CLOSED;
 
-                    scanState.result.addPortInfo(htonl(iph->source_addr), htons(tcph->source_port), portState);
+                    uint32_t ip = ntohl(iph->source_addr);
+                    uint16_t port = ntohs(tcph->source_port);
+                    scanState.result.addPortInfo(ip, port, portState);
+
+                    char addrStr[32];
+                    in_addr addr{};
+                    addr.s_addr = iph->source_addr;
+                    inet_ntop(AF_INET, &addr, addrStr, sizeof(addrStr));
+
+                    std::cout << addrStr << ',' << port << '\n';
                 }
             }
         }
