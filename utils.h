@@ -10,7 +10,8 @@ uint32_t getLocalIp();
 int sendAll(int s, const char *buf, int len, int flags);
 int sendtoAll(int s, const char *buf, int len, int flags, const sockaddr *to, int tolen);
 int idleRecvfromAll(int s, void *buf, int bufLen, int readLen, int flags, sockaddr *from , socklen_t *fromlen);
-bool getAutoNetworkInterface(NetworkInterface &interface);
+int getDefaultNetworkInterface(NetworkInterface &interface);
+int getNetworkInterfaceByName(char *name, NetworkInterface &interface);
 int getDefaultGateway(int ifindex, uint32_t *ipv4);
 
 #endif //PORTSCANNER_UTILS_H

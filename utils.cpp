@@ -479,12 +479,70 @@ int getDefaultGateway(int ifindex, uint32_t *ipv4) {
 }
 
 
-bool getAutoNetworkInterface(NetworkInterface &interface) {
+int getNetworkInterfaceGateway(NetworkInterface &interface) {
+    uint32_t gatewayIp = 0;
+    if (getDefaultGateway(interface.index, &gatewayIp))
+        return -1;
+
+    if (gatewayIp) {
+        interface.gatewayIp = gatewayIp;
+        if (arpRequest(interface.ip, gatewayIp, interface.index, (const char*)interface.mac, (char*)interface.gatewayMac))
+            return -1;
+
+        return 0;
+    }
+
+    memset(interface.gatewayMac, 0, sizeof(interface.mac));
+    interface.gatewayIp = interface.ip;
+
+    return 0;
+}
+
+
+int getNetworkInterfaceByName(char *name, NetworkInterface &interface) {
+    int index = if_nametoindex(name);
+    if (index == 0)
+        return -1;
+
+    interface.index = index;
+    strcpy(interface.name, name);
+
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     if (sock < 0)
-        return false;
+        return -1;
 
-    bool result = false;
+    ifreq ifr {};
+    strcpy(ifr.ifr_name, name);
+
+    if (ioctl(sock, SIOCGIFADDR, &ifr)) {
+        close(sock);
+        return -1;
+    }
+
+    interface.ip = ntohl(((sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr);
+
+    if (ioctl(sock, SIOCGIFHWADDR, &ifr)) {
+        close(sock);
+        return -1;
+    }
+
+    memcpy(interface.mac, ifr.ifr_hwaddr.sa_data, sizeof(interface.mac));
+
+    close(sock);
+
+    if (getNetworkInterfaceGateway(interface))
+        return -1;
+
+    return 0;
+}
+
+
+int getDefaultNetworkInterface(NetworkInterface &interface) {
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (sock < 0)
+        return -1;
+
+    bool found = false;
     struct if_nameindex *interfaces = if_nameindex();
     struct if_nameindex *curInterface = interfaces;
     ifreq ifr {};
@@ -512,28 +570,17 @@ bool getAutoNetworkInterface(NetworkInterface &interface) {
         interface.index = curInterface->if_index;
         memcpy(interface.mac, ifr.ifr_hwaddr.sa_data, sizeof(interface.mac));
         strcpy(interface.name, curInterface->if_name);
-        result = true;
+        found = true;
     }
 
     close(sock);
     if_freenameindex(interfaces);
 
-    if (!result)
-        return false;
+    if (!found)
+        return -1;
 
-    uint32_t defaultGatewayIp = 0;
-    if (getDefaultGateway(interface.index, &defaultGatewayIp))
-        return false;
+    if (getNetworkInterfaceGateway(interface))
+        return -1;
 
-    if (defaultGatewayIp == 0) {
-        memset(interface.gatewayMac, 0, sizeof(interface.mac));
-        interface.gatewayIp = interface.ip;
-    }
-    else {
-        interface.gatewayIp = defaultGatewayIp;
-        if (arpRequest(interface.ip, defaultGatewayIp, interface.index, (const char*)interface.mac, (char*)interface.gatewayMac))
-            return false;
-    }
-
-    return true;
+    return 0;
 }

@@ -13,18 +13,11 @@
 int main(int argc, char** argv) {
     srand(time(nullptr));
 
-    NetworkInterface interface;
-    bool if_result = getAutoNetworkInterface(interface);
-    if (!if_result) {
-        std::cout << "Cant' get network interface";
-        return -1;
-    }
-
     ScanParams scanParams {};
     scanParams.wait = 10;
-    scanParams.interface = interface;
     randBytes(scanParams.seed, sizeof(ScanParams::seed));
-    getScanParams(scanParams, argc, argv);
+    if (getScanParams(scanParams, argc, argv))
+        return -1;
 
     ScanState scanState {scanParams};
 

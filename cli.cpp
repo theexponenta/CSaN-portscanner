@@ -1,10 +1,12 @@
+#include <iostream>
 #include "scanning/scanning.h"
 #include "cli.h"
+#include "utils.h"
 #include <string>
 #include <arpa/inet.h>
 
 
-using param_setter = void (*)(ScanParams &params, char* value);
+using param_setter = int (*)(ScanParams &params, char* value);
 
 
 struct ScanCLIParam {
@@ -14,7 +16,7 @@ struct ScanCLIParam {
 };
 
 
-void setPorts(ScanParams &params, char *value) {
+int setPorts(ScanParams &params, char *value) {
     char *start = value;
 
     std::string token;
@@ -33,21 +35,36 @@ void setPorts(ScanParams &params, char *value) {
         token.append(start);
         params.ports.push_back(std::atoi(token.c_str()));
     }
+
+    return 0;
+}
+
+
+int setNetworkInterface(ScanParams &params, char *value) {
+    if (getNetworkInterfaceByName(value, params.interface)) {
+        std::cout << "Can't get network interface \"" << value << "\"\n";
+        return -1;
+    }
+
+    return 0;
 }
 
 
 const ScanCLIParam SCAN_CLI_PARAMS[] = {
-    {"ports", setPorts, 0}
+    {"ports", setPorts, 0},
+    {"interface", setNetworkInterface, 0}
 };
 
 
-void setParam(ScanParams &params, std::string &name, char *value) {
+int setParam(ScanParams &params, std::string &name, char *value) {
     int paramsCount = sizeof(SCAN_CLI_PARAMS) / sizeof(ScanCLIParam);
     for (int i = 0; i < paramsCount; i++) {
         if (SCAN_CLI_PARAMS[i].name == name) {
-            SCAN_CLI_PARAMS[i].setter(params, value);
+            return SCAN_CLI_PARAMS[i].setter(params, value);
         }
     }
+
+    return -1;
 }
 
 
@@ -62,7 +79,9 @@ char *firstNonAlphanumeric(char* str) {
 }
 
 
-void getScanParams(ScanParams &params, int argc, char** argv) {
+int getScanParams(ScanParams &params, int argc, char** argv) {
+    params.interface.ip = 0;
+
     std::string paramName;
 
     for (int i = 1; i < argc; i++) {
@@ -79,7 +98,9 @@ void getScanParams(ScanParams &params, int argc, char** argv) {
             if (i == argc - 1)
                 break;
 
-            setParam(params, paramName, argv[i + 1]);
+            if (setParam(params, paramName, argv[i + 1]))
+                return -1;
+
             i++;
         } else {
             uint32_t addr = inet_addr(argv[i]);
@@ -89,4 +110,13 @@ void getScanParams(ScanParams &params, int argc, char** argv) {
             params.ips.push_back(addr);
         }
     }
+
+    if (params.interface.ip == 0) {
+        if (getDefaultNetworkInterface(params.interface)) {
+            std::cout << "Can't find suitable network interface. Try to specify it via --interface option.\n";
+            return -1;
+        }
+    }
+
+    return 0;
 }
