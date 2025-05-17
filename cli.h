@@ -3,6 +3,6 @@
 
 #include "scanning/scanning.h"
 
-int getScanParams(ScanParams &params, int argc, char** argv) ;
+int getCliScanParams(ScanParams &params, int argc, char** argv) ;
 
 #endif //CLI_H

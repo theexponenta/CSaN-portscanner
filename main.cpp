@@ -10,17 +10,26 @@
 #include "utils.h"
 
 
+int getScanParams(int argc, char **argv, ScanParams &params) {
+    if (getCliScanParams(params, argc, argv))
+        return -1;
+
+    params.wait = 10;
+    randBytes(params.seed, sizeof(ScanParams::seed));
+    randBytes(&params.interface.spoofedIp, sizeof(params.interface.spoofedIp));
+
+    return 0;
+}
+
+
 int main(int argc, char** argv) {
     srand(time(nullptr));
 
     ScanParams scanParams {};
-    scanParams.wait = 10;
-    randBytes(scanParams.seed, sizeof(ScanParams::seed));
-    if (getScanParams(scanParams, argc, argv))
+    if (getScanParams(argc, argv, scanParams))
         return -1;
 
     ScanState scanState {scanParams};
-
     synScan(scanState);
 
     for (auto &host : scanState.result.hostsInfo()) {

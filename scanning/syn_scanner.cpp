@@ -9,10 +9,13 @@
 #include <map>
 #include <thread>
 #include <iostream>
+#include <bits/regex_constants.h>
+
 #include "../ip.h"
 #include "../tcp.h"
 #include "../random.h"
 #include "../utils.h"
+#include "../arp.h"
 #include "scanning.h"
 
 #define DEFAULT_TTL 65
@@ -30,23 +33,37 @@ struct tcphash {
 };
 
 
+int bindSocketToInterface(int sock, int ifindex) {
+    sockaddr_ll addr;
+    addr.sll_family = AF_PACKET;
+    addr.sll_protocol = htons(ETH_P_ALL);
+    addr.sll_ifindex = ifindex;
+
+    return bind(sock, (sockaddr*)&addr, sizeof(addr));
+}
+
+
 void synScanReceive(ScanState &scanState) {
     char buffer[1600];
-    iphdr *iph = (iphdr*)buffer;
-    tcphdr *tcph = nullptr;
-    tcphash tcpHash {};
-    int sock = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+    ethhdr *eth = (ethhdr*)buffer;
+
+    int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+    bindSocketToInterface(sock, scanState.params.interface.index);
 
     while (!scanState.isEnd) {
-        int bytesReceived = recvfrom(sock, buffer, sizeof(buffer), 0, nullptr, nullptr);
+        int bytesReceived = recv(sock, buffer, sizeof(buffer), 0);
         if (bytesReceived <= 0)
             continue;
 
-        int length = htons(iph->tot_len);
+        int length = 0;
+        iphdr *iph = (iphdr*)(buffer + sizeof(ethhdr));
 
-        if (iph->protocol == IPPROTO_TCP) {
-            tcph = (tcphdr*)(buffer + iph->ihl * 4);
-            if (tcph->syn && tcph->ack) {
+        if (eth->h_proto == htons(ETH_P_IP) && iph->protocol == IPPROTO_TCP) {
+            length = htons(iph->tot_len);
+            tcphdr *tcph = (tcphdr*)((char*)iph + iph->ihl * 4);
+            tcphash tcpHash {};
+
+            if ((tcph->syn && tcph->ack) || tcph->rst) {
                 tcpHash.source_addr = iph->dest_addr;
                 tcpHash.source_port = tcph->dest_port;
                 tcpHash.dest_addr = iph->source_addr;
@@ -56,8 +73,9 @@ void synScanReceive(ScanState &scanState) {
                 siphash(&tcpHash, sizeof(tcpHash), scanState.params.seed, (uint8_t*)&hash, sizeof(hash));
                 if (htonl(tcph->ack_num) - 1 == (uint32_t)hash) {
                     PortState portState = PortState::OPEN;
-                    if (tcph->rst)
+                    if (tcph->rst) {
                         portState = PortState::CLOSED;
+                    }
 
                     uint32_t ip = ntohl(iph->source_addr);
                     uint16_t port = ntohs(tcph->source_port);
@@ -68,13 +86,69 @@ void synScanReceive(ScanState &scanState) {
                     addr.s_addr = iph->source_addr;
                     inet_ntop(AF_INET, &addr, addrStr, sizeof(addrStr));
 
-                    std::cout << addrStr << ',' << port << '\n';
+                    if (!tcph->rst) {
+                        char tempMac[6];
+                        memcpy(tempMac, eth->h_source, ARP_ETH_HLN);
+                        memcpy(eth->h_source, eth->h_dest, ARP_ETH_HLN);
+                        memcpy(eth->h_dest, tempMac, ARP_ETH_HLN);
+
+                        iph->tot_len = htons(sizeof(iphdr) + sizeof(tcphdr));
+                        iph->ttl = DEFAULT_TTL;
+                        iph->frag_off = htons((iph->frag_off & IP_OFFMASK) | IP_DF);
+
+                        uint32_t tempIp = iph->source_addr;
+                        iph->source_addr = iph->dest_addr;
+                        iph->dest_addr = tempIp;
+                        iph->checksum = 0;
+
+                        tcph->syn = 0;
+                        tcph->ack = 0;
+                        tcph->rst = 1;
+                        tcph->seq_num = tcph->ack_num;
+                        tcph->ack_num = 0;
+                        tcph->data_off = sizeof(tcphdr) / 4;
+                        tcph->window = 0;
+
+                        uint16_t tempPort = tcph->source_port;
+                        tcph->source_port = tcph->dest_port;
+                        tcph->dest_port = tempPort;
+                        tcph->checksum = 0;
+
+                        pseudo_tcphdr pseudoTcph {};
+                        pseudoTcph.source_address = iph->source_addr;
+                        pseudoTcph.dest_address = iph->dest_addr;
+                        pseudoTcph.protocol = IPPROTO_TCP;
+                        pseudoTcph.tcp_length = htons(sizeof(tcphdr));
+                        memcpy(&pseudoTcph.tcp, tcph, sizeof(tcphdr));
+
+                        iph->checksum = checksum((uint16_t*)iph, sizeof(iphdr));
+                        tcph->checksum = checksum((uint16_t*)&pseudoTcph, sizeof(pseudoTcph));
+
+                        sendAll(sock, buffer, sizeof(ethhdr) + sizeof(iphdr) + sizeof(tcphdr), 0);
+                    }
+
+                    std::cout << addrStr << ',' << port << ',' << getPortStateName(portState) << '\n';
                 }
+            }
+        } else if (eth->h_proto == htons(ETH_P_ARP)) {
+            etharp *arph = (etharp*)(buffer + sizeof(ethhdr));
+            if (arph->ar_op == htons(ARP_REQUEST_OP) && arph->ar_tpa == htonl(scanState.params.interface.spoofedIp)) {
+                memcpy(eth->h_source, arph->ar_tha, sizeof(eth->h_source));
+                memcpy(eth->h_dest, arph->ar_sha, sizeof(eth->h_dest));
+
+                etharp *response = arph;
+                uint32_t temp = response->ar_tpa;
+                response->ar_tpa = response->ar_spa;
+                response->ar_spa = temp;
+                response->ar_op = htons(ARP_RESPONSE_OP);
+                memcpy(response->ar_sha, scanState.params.interface.mac, ARP_ETH_HLN);
+
+                sendAll(sock, buffer, sizeof(etharp) + sizeof(ethhdr), 0);
             }
         }
 
         if (length > bytesReceived)
-            idleRecvfromAll(sock, buffer, sizeof(buffer), length - bytesReceived, 0, nullptr, nullptr);
+            idleRecvAll(sock, buffer, sizeof(buffer), length - bytesReceived, 0);
     }
 }
 
@@ -83,13 +157,7 @@ void synScanTransmit(ScanState &scanState) {
     const ScanParams params = scanState.params;
 
     int sendSock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
-
-    sockaddr_ll addr;
-    addr.sll_family = AF_PACKET;
-    addr.sll_protocol = htons(ETH_P_ALL);
-    addr.sll_ifindex = params.interface.index;
-
-    bind(sendSock, (sockaddr*)&addr, sizeof(addr));
+    bindSocketToInterface(sendSock, params.interface.index);
 
     char datagram[sizeof(ethhdr) + sizeof(iphdr) + sizeof(tcphdr)];
     memset(datagram, 0, sizeof(datagram));
@@ -109,7 +177,7 @@ void synScanTransmit(ScanState &scanState) {
     iph->frag_off = htons((iph->frag_off & IP_OFFMASK) | IP_DF);
     iph->ttl = DEFAULT_TTL;
     iph->protocol = IPPROTO_TCP;
-    iph->source_addr = htonl(params.interface.ip);
+    iph->source_addr = htonl(params.interface.spoofedIp);
 
     tcph->syn = 1;
     tcph->data_off = sizeof(tcphdr) / 4;

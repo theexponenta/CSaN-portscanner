@@ -79,7 +79,7 @@ char *firstNonAlphanumeric(char* str) {
 }
 
 
-int getScanParams(ScanParams &params, int argc, char** argv) {
+int getCliScanParams(ScanParams &params, int argc, char** argv) {
     params.interface.ip = 0;
 
     std::string paramName;

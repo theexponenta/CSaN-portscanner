@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <net/if.h>
+#include <string>
 
 
 struct NetworkInterface {
@@ -13,6 +14,7 @@ struct NetworkInterface {
     unsigned char mac[6];
     unsigned char gatewayMac[6];
     uint32_t ip;
+    uint32_t spoofedIp;
     uint32_t gatewayIp;
 };
 
@@ -32,6 +34,7 @@ enum PortState {
     FILTERED
 };
 
+std::string getPortStateName(PortState state);
 
 struct PortInfo {
     uint16_t port;

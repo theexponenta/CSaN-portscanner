@@ -11,7 +11,7 @@
 #define ARP_RESPONSE_OP 2
 
 
-struct etharp{
+struct etharp {
     uint16_t ar_hrd;
     uint16_t ar_pro;
     uint8_t ar_hln;
