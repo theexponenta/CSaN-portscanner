@@ -1,6 +1,7 @@
 #ifndef SCANNING_H
 #define SCANNING_H
 
+#include <iostream>
 #include <cstdint>
 #include <vector>
 #include <map>
@@ -25,6 +26,7 @@ struct ScanParams {
     NetworkInterface interface;
     unsigned int wait;
     char seed[16];
+    std::vector<std::ofstream*> ofstreams;
 };
 
 

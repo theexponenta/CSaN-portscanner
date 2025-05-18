@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include "scanning/scanning.h"
 #include "cli.h"
 #include "utils.h"
@@ -50,9 +51,38 @@ int setNetworkInterface(ScanParams &params, char *value) {
 }
 
 
+int setSourceIp(ScanParams &params, char *value) {
+    in_addr addr;
+    if (inet_aton(value, &addr) == 0) {
+        std::cout << "Invalid source address: " << value;
+        return -1;
+    }
+
+    params.interface.spoofedIp = ntohl(addr.s_addr);
+
+    return 0;
+}
+
+
+int setOutput(ScanParams &params, char *value) {
+    std::ofstream *output = new std::ofstream(value);
+    if (output->fail()) {
+        std::cout << "Can't open file " << value;
+        delete output;
+        return -1;
+    }
+
+    params.ofstreams.push_back(output);
+
+    return 0;
+}
+
+
 const ScanCLIParam SCAN_CLI_PARAMS[] = {
     {"ports", setPorts, 0},
-    {"interface", setNetworkInterface, 0}
+    {"interface", setNetworkInterface, 0},
+    {"source-ip", setSourceIp, 0},
+    {"output", setOutput, 0}
 };
 
 
@@ -70,7 +100,7 @@ int setParam(ScanParams &params, std::string &name, char *value) {
 
 char *firstNonAlphanumeric(char* str) {
     char c = str[0];
-    while (c && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) {
+    while (c && (c == '-' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) {
         str++;
         c = *str;
     }

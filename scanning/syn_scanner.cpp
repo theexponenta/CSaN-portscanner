@@ -6,11 +6,9 @@
 #include <net/ethernet.h>
 #include <arpa/inet.h>
 #include <cstring>
+#include <fstream>
 #include <map>
 #include <thread>
-#include <iostream>
-#include <bits/regex_constants.h>
-
 #include "../ip.h"
 #include "../tcp.h"
 #include "../random.h"
@@ -127,7 +125,9 @@ void synScanReceive(ScanState &scanState) {
                         sendAll(sock, buffer, sizeof(ethhdr) + sizeof(iphdr) + sizeof(tcphdr), 0);
                     }
 
-                    std::cout << addrStr << ',' << port << ',' << getPortStateName(portState) << '\n';
+                    for (std::ofstream *stream : scanState.params.ofstreams) {
+                        *stream << addrStr << ',' << port << ',' << getPortStateName(portState) << '\n';
+                    }
                 }
             }
         } else if (eth->h_proto == htons(ETH_P_ARP)) {

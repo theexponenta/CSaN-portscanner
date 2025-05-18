@@ -7,16 +7,22 @@
 #include "scanning/syn_scanner.h"
 #include "random.h"
 #include "cli.h"
-#include "utils.h"
 
 
 int getScanParams(int argc, char **argv, ScanParams &params) {
+    params.interface.spoofedIp = 0;
+
+    std::ofstream *stdOut = new std::ofstream();
+    *stdOut->basic_ios<char>::rdbuf(std::cout.rdbuf());
+    params.ofstreams.push_back(stdOut);
+
     if (getCliScanParams(params, argc, argv))
         return -1;
 
     params.wait = 10;
     randBytes(params.seed, sizeof(ScanParams::seed));
-    randBytes(&params.interface.spoofedIp, sizeof(params.interface.spoofedIp));
+    if (params.interface.spoofedIp == 0)
+        params.interface.spoofedIp = params.interface.ip;
 
     return 0;
 }
@@ -31,6 +37,11 @@ int main(int argc, char** argv) {
 
     ScanState scanState {scanParams};
     synScan(scanState);
+
+    for (std::ofstream* stream : scanParams.ofstreams) {
+        stream->close();
+        delete stream;
+    }
 
     for (auto &host : scanState.result.hostsInfo()) {
         char addrStr[32];
