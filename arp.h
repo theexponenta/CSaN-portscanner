@@ -18,9 +18,9 @@ struct etharp {
     uint8_t ar_pln;
     uint16_t ar_op;
 
-    char ar_sha[ARP_ETH_HLN];
+    unsigned char ar_sha[ARP_ETH_HLN];
     uint32_t ar_spa;
-    char ar_tha[ARP_ETH_HLN];
+    unsigned char ar_tha[ARP_ETH_HLN];
     uint32_t ar_tpa;
 } __attribute__ ((__packed__));
 

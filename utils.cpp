@@ -584,3 +584,18 @@ int getDefaultNetworkInterface(NetworkInterface &interface) {
 
     return 0;
 }
+
+
+int bindSocketToInterface(int sock, int ifindex) {
+    sockaddr_ll addr;
+    addr.sll_family = AF_PACKET;
+    addr.sll_protocol = htons(ETH_P_ALL);
+    addr.sll_ifindex = ifindex;
+
+    return bind(sock, (sockaddr*)&addr, sizeof(addr));
+}
+
+
+void macToStr(const unsigned char *macAddr, char *buffer) {
+    sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x", macAddr[0], macAddr[1], macAddr[2], macAddr[3], macAddr[4], macAddr[5]);
+}

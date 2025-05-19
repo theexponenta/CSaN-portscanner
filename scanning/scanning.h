@@ -20,7 +20,18 @@ struct NetworkInterface {
 };
 
 
+enum ScanType {
+    SYN,
+    ARP,
+    UNKNOWN
+};
+
+
+ScanType getScanTypeByName(char *name);
+
+
 struct ScanParams {
+    ScanType scanType;
     std::vector<uint32_t> ips;
     std::vector<uint16_t> ports;
     NetworkInterface interface;

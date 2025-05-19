@@ -14,5 +14,7 @@ int idleRecvfromAll(int s, void *buf, int bufLen, int readLen, int flags, sockad
 int getDefaultNetworkInterface(NetworkInterface &interface);
 int getNetworkInterfaceByName(char *name, NetworkInterface &interface);
 int getDefaultGateway(int ifindex, uint32_t *ipv4);
+int bindSocketToInterface(int sock, int ifindex);
+void macToStr(const unsigned char *macAddr, char *buffer);
 
 #endif //PORTSCANNER_UTILS_H

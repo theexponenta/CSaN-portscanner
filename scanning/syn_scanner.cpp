@@ -31,16 +31,6 @@ struct tcphash {
 };
 
 
-int bindSocketToInterface(int sock, int ifindex) {
-    sockaddr_ll addr;
-    addr.sll_family = AF_PACKET;
-    addr.sll_protocol = htons(ETH_P_ALL);
-    addr.sll_ifindex = ifindex;
-
-    return bind(sock, (sockaddr*)&addr, sizeof(addr));
-}
-
-
 void synScanReceive(ScanState &scanState) {
     char buffer[1600];
     ethhdr *eth = (ethhdr*)buffer;
@@ -126,7 +116,7 @@ void synScanReceive(ScanState &scanState) {
                     }
 
                     for (std::ofstream *stream : scanState.params.ofstreams) {
-                        *stream << addrStr << ',' << port << ',' << getPortStateName(portState) << '\n';
+                        *stream << addrStr << ',' << port << ',' << getPortStateName(portState) << std::endl;
                     }
                 }
             }
@@ -195,7 +185,7 @@ void synScanTransmit(ScanState &scanState) {
     destAddr.sin_family = AF_INET;
 
     for (uint32_t host : params.ips) {
-        iph->dest_addr = host;
+        iph->dest_addr = htonl(host);
         iph->checksum = 0;
         iph->checksum = checksum((uint16_t*)iph, sizeof(iphdr));
 
@@ -229,6 +219,8 @@ void synScan(ScanState &scanState) {
     std::thread receiveThread(synScanReceive, std::ref(scanState));
     std::thread transmitThread(synScanTransmit, std::ref(scanState));
 
+    transmitThread.join();
+
     time_t start = time(nullptr);
     int messagesCount = scanState.params.ips.size() * scanState.params.ports.size();
     while (time(nullptr) - start <= scanState.params.wait && scanState.result.size() < messagesCount) {
@@ -237,6 +229,5 @@ void synScan(ScanState &scanState) {
 
     scanState.isEnd = true;
 
-    transmitThread.join();
     receiveThread.join();
 }

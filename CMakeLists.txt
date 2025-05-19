@@ -16,4 +16,6 @@ add_executable(portscanner main.cpp
         scanning/scanning.cpp
         cli.cpp
         cli.h
-        arp.h)
+        arp.h
+        scanning/arp_scanner.cpp
+        scanning/arp_scanner.h)

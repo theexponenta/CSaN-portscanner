@@ -4,6 +4,7 @@
 #include "cli.h"
 #include "utils.h"
 #include <string>
+#include <cstring>
 #include <arpa/inet.h>
 
 
@@ -78,11 +79,22 @@ int setOutput(ScanParams &params, char *value) {
 }
 
 
+int setScanType(ScanParams &params, char *value) {
+    ScanType type = getScanTypeByName(value);
+    if (type == ScanType::UNKNOWN)
+        return -1;
+
+    params.scanType = type;
+    return 0;
+}
+
+
 const ScanCLIParam SCAN_CLI_PARAMS[] = {
     {"ports", setPorts, 0},
     {"interface", setNetworkInterface, 0},
     {"source-ip", setSourceIp, 0},
-    {"output", setOutput, 0}
+    {"output", setOutput, 0},
+    {"type", setScanType, 0}
 };
 
 
@@ -137,7 +149,7 @@ int getCliScanParams(ScanParams &params, int argc, char** argv) {
             if (addr == INADDR_NONE)
                 continue;
 
-            params.ips.push_back(addr);
+            params.ips.push_back(ntohl(addr));
         }
     }
 

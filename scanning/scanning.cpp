@@ -2,6 +2,28 @@
 #include <string>
 
 
+struct ScanTypeName {
+    ScanType type;
+    std::string name;
+};
+
+
+ScanTypeName scanTypeNames[] = {
+    {ScanType::SYN, "syn"},
+    {ScanType::ARP, "arp"}
+};
+
+
+ScanType getScanTypeByName(char *name) {
+    for (auto & scanTypeName : scanTypeNames) {
+        if (scanTypeName.name == name)
+            return scanTypeName.type;
+    }
+
+    return ScanType::UNKNOWN;
+}
+
+
 std::string getPortStateName(PortState state) {
     switch (state) {
         case OPEN:

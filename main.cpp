@@ -7,9 +7,11 @@
 #include "scanning/syn_scanner.h"
 #include "random.h"
 #include "cli.h"
+#include "scanning/arp_scanner.h"
 
 
 int getScanParams(int argc, char **argv, ScanParams &params) {
+    params.scanType = ScanType::SYN;
     params.interface.spoofedIp = 0;
 
     std::ofstream *stdOut = new std::ofstream();
@@ -36,33 +38,15 @@ int main(int argc, char** argv) {
         return -1;
 
     ScanState scanState {scanParams};
-    synScan(scanState);
+
+    if (scanParams.scanType == ScanType::SYN)
+        synScan(scanState);
+    else if (scanParams.scanType == ScanType::ARP)
+        arpScan(scanState);
 
     for (std::ofstream* stream : scanParams.ofstreams) {
         stream->close();
         delete stream;
-    }
-
-    for (auto &host : scanState.result.hostsInfo()) {
-        char addrStr[32];
-        in_addr addr{};
-        addr.s_addr = htonl(host.ip);
-        inet_ntop(AF_INET, &addr, addrStr, sizeof(addrStr));
-
-        std::cout << addrStr << "\n";
-
-        for (const PortInfo &portInfo : host.portsInfo) {
-            std::cout << portInfo.port << " ";
-
-            if (portInfo.state == PortState::OPEN)
-                std::cout << "OPEN";
-            else
-                std::cout << "CLOSED";
-
-            std::cout << '\n';
-        }
-
-        std::cout << '\n';
     }
 
     return 0;
